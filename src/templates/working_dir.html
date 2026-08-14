@@ -117,6 +117,21 @@
         </div>
 
         {% if staged %}
+        <div class="card" style="margin-bottom: 16px;">
+            <div class="card-header">Stash Changes</div>
+            <div class="card-body padded">
+                <form action="/repo/{{ repo_name }}/stash-save" method="POST">
+                    <div style="margin-bottom: 12px;">
+                        <input type="text" name="message" placeholder="Optional stash message"
+                               style="width: 100%; padding: 8px 12px;">
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%;">
+                        Stash {{ staged|length }} file{{ 's' if staged|length != 1 }}
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">Create Commit</div>
             <div class="card-body padded">
@@ -132,6 +147,15 @@
             </div>
         </div>
         {% endif %}
+
+        <div class="card" style="margin-top: 16px;">
+            <div class="card-header">Stashes</div>
+            <div class="card-body padded">
+                <a href="/repo/{{ repo_name }}/stashes" class="btn" style="width: 100%; text-align: center;">
+                    View Stashes
+                </a>
+            </div>
+        </div>
 
         <div class="card" style="margin-top: 16px;">
             <div class="card-header">Tracked File Actions</div>

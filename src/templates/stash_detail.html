@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Stash #{{ stash.index }} - {{ repo_name }} - MiniGit{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Repositories</a> /
+    <a href="/repo/{{ repo_name }}">{{ repo_name }}</a> /
+    <a href="/repo/{{ repo_name }}/stashes">Stashes</a> /
+    <strong>#{{ stash.index }}</strong>
+</div>
+
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-header">Stash #{{ stash.index }}</div>
+    <div class="card-body padded">
+        <div class="meta">{{ stash.timestamp }}</div>
+        {% if stash.message %}
+        <div style="margin-top: 8px; font-size: 16px;">{{ stash.message }}</div>
+        {% endif %}
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <form action="/repo/{{ repo_name }}/stashes/{{ stash.index }}/apply" method="POST" style="margin: 0;">
+                <button type="submit" class="btn btn-primary">Apply</button>
+            </form>
+            <form action="/repo/{{ repo_name }}/stashes/{{ stash.index }}/drop" method="POST" style="margin: 0;">
+                <button type="submit" class="btn">Drop</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Contents ({{ preview|length }} file{{ 's' if preview|length != 1 }})</div>
+    <div class="card-body">
+        {% for file in preview %}
+        <div style="margin-bottom: 16px;">
+            <div class="list-item">
+                <span class="badge {% if file.action == 'add' %}added{% else %}deleted{% endif %}"
+                      style="font-size: 11px;">{{ file.action }}</span>
+                <span style="font-family: monospace; font-size: 13px;">{{ file.path }}</span>
+            </div>
+            {% if file.action == 'add' and file.content %}
+            <pre style="background: #161b22; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin-top: 8px;">{{ file.content }}</pre>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div style="margin-top: 16px;">
+    <a href="/repo/{{ repo_name }}/stashes" class="btn">&larr; Back to stashes</a>
+</div>
+{% endblock %}

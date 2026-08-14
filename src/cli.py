@@ -181,6 +181,65 @@ def cmd_serve(args: argparse.Namespace) -> None:
     app.run(debug=True, port=args.port)
 
 
+def cmd_stash_save(args: argparse.Namespace) -> None:
+    """Handle 'stash save' — snapshot staged files to the stash stack."""
+    ops = get_ops(args)
+    try:
+        index = ops.stash_save(args.message)
+        print(f"Saved stash at index {index}")
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+def cmd_stash_list(args: argparse.Namespace) -> None:
+    """Handle 'stash list' — show all stashes."""
+    ops = get_ops(args)
+    stashes = ops.stash_list()
+    if not stashes:
+        print("No stashes")
+        return
+    for s in stashes:
+        msg = f' "{s["message"]}"' if s["message"] else ""
+        print(
+            f"stash@{{{s['index']}}}: {s['timestamp']}{msg} "
+            f"({s['file_count']} file{'s' if s['file_count'] != 1 else ''})"
+        )
+
+
+def cmd_stash_apply(args: argparse.Namespace) -> None:
+    """Handle 'stash apply' — restore a stash to staging."""
+    ops = get_ops(args)
+    try:
+        ops.stash_apply(args.index)
+        print(f"Applied stash@{args.index}")
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+def cmd_stash_pop(args: argparse.Namespace) -> None:
+    """Handle 'stash pop' — apply and remove the most recent stash."""
+    ops = get_ops(args)
+    try:
+        ops.stash_pop()
+        print("Popped stash@0")
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+def cmd_stash_drop(args: argparse.Namespace) -> None:
+    """Handle 'stash drop' — delete a stash without applying."""
+    ops = get_ops(args)
+    try:
+        ops.stash_drop(args.index)
+        print(f"Dropped stash@{args.index}")
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Parse arguments and dispatch to the appropriate command handler."""
     parser = argparse.ArgumentParser(
@@ -219,6 +278,23 @@ def main() -> None:
     p_serve = sub.add_parser("serve", help="Start web UI")
     p_serve.add_argument("--port", type=int, default=5000)
 
+    p_stash = sub.add_parser("stash", help="Stash staged changes")
+    stash_sub = p_stash.add_subparsers(dest="stash_command")
+    stash_sub.required = True
+
+    p_stash_save = stash_sub.add_parser("save", help="Save staged changes to stash")
+    p_stash_save.add_argument("message", nargs="?", default=None)
+
+    stash_sub.add_parser("list", help="List all stashes")
+
+    p_stash_apply = stash_sub.add_parser("apply", help="Apply a stash to staging")
+    p_stash_apply.add_argument("index", type=int)
+
+    stash_sub.add_parser("pop", help="Apply and remove the most recent stash")
+
+    p_stash_drop = stash_sub.add_parser("drop", help="Delete a stash")
+    p_stash_drop.add_argument("index", type=int)
+
     args = parser.parse_args()
     commands: dict[str, Any] = {
         "init": cmd_init,
@@ -231,6 +307,16 @@ def main() -> None:
         "cat": cmd_cat,
         "serve": cmd_serve,
     }
+    if args.command == "stash":
+        stash_commands: dict[str, Any] = {
+            "save": cmd_stash_save,
+            "list": cmd_stash_list,
+            "apply": cmd_stash_apply,
+            "pop": cmd_stash_pop,
+            "drop": cmd_stash_drop,
+        }
+        stash_commands[args.stash_command](args)
+        return
     commands[args.command](args)
 
 

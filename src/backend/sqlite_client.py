@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from datetime import datetime, timezone
 from typing import Any
 
 import structlog
@@ -77,6 +78,12 @@ class SQLiteClient:
                 path TEXT PRIMARY KEY,
                 action TEXT NOT NULL,
                 blob_hash TEXT
+            );
+            CREATE TABLE IF NOT EXISTS stashes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                message TEXT,
+                staged_snapshot_json TEXT NOT NULL
             );
         """)
         self.conn.commit()
@@ -208,6 +215,44 @@ class SQLiteClient:
     def clear_staging(self) -> None:
         """Remove all entries from the staging area."""
         self.cursor.execute("DELETE FROM staging")
+        self.conn.commit()
+
+    def save_stash(self, message: str | None, snapshot_json: str) -> int:
+        """Persist a stash snapshot. Returns the new stash row id."""
+        _validate_str(snapshot_json, "staged snapshot")
+        if message is not None:
+            _validate_str(message, "stash message", max_len=1000)
+        timestamp = datetime.now(timezone.utc).isoformat()
+        self.cursor.execute(
+            "INSERT INTO stashes (timestamp, message, staged_snapshot_json) VALUES (?, ?, ?)",
+            (timestamp, message, snapshot_json),
+        )
+        self.conn.commit()
+        return int(self.cursor.lastrowid)
+
+    def list_stashes(self) -> list[dict[str, Any]]:
+        """Return all stashes ordered newest first."""
+        self.cursor.execute(
+            "SELECT id, timestamp, message, staged_snapshot_json "
+            "FROM stashes ORDER BY id DESC"
+        )
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def get_stash(self, index: int) -> dict[str, Any] | None:
+        """Return stash at logical index (0 = newest), or None if out of range."""
+        if not isinstance(index, int) or index < 0:
+            raise ValueError(f"Invalid stash index: {index!r}")
+        stashes = self.list_stashes()
+        if index >= len(stashes):
+            return None
+        return stashes[index]
+
+    def delete_stash(self, index: int) -> None:
+        """Delete stash at logical index (0 = newest)."""
+        stash = self.get_stash(index)
+        if stash is None:
+            raise ValueError(f"Stash index {index} out of range")
+        self.cursor.execute("DELETE FROM stashes WHERE id = ?", (stash["id"],))
         self.conn.commit()
 
     def close(self) -> None:

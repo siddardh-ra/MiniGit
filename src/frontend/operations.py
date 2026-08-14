@@ -239,6 +239,58 @@ class Operations:
         """Return the list of currently staged file entries."""
         return self.db.get_staged()
 
+    def stash_save(self, message: str | None = None) -> int:
+        """Save staged changes to the stash stack. Returns index (0 = newest)."""
+        staged = self.db.get_staged()
+        if not staged:
+            raise ValueError("Nothing staged to stash")
+        self.db.save_stash(message, json.dumps(staged))
+        self.db.clear_staging()
+        return 0
+
+    def stash_list(self) -> list[dict[str, Any]]:
+        """Return stash entries with index, timestamp, message, and file count."""
+        result: list[dict[str, Any]] = []
+        for index, stash in enumerate(self.db.list_stashes()):
+            snapshot = json.loads(stash["staged_snapshot_json"])
+            result.append({
+                "index": index,
+                "timestamp": stash["timestamp"],
+                "message": stash["message"] or "",
+                "file_count": len(snapshot),
+            })
+        return result
+
+    def stash_apply(self, index: int) -> None:
+        """Restore a stash to the staging area without removing it."""
+        if self.db.get_staged():
+            raise ValueError("Staging area is not empty")
+        stash = self.db.get_stash(index)
+        if stash is None:
+            raise ValueError(f"Stash index {index} out of range")
+        for entry in json.loads(stash["staged_snapshot_json"]):
+            self.db.stage_file(entry["path"], entry["action"], entry.get("blob_hash"))
+
+    def stash_pop(self) -> None:
+        """Apply the most recent stash and remove it from the stack."""
+        if not self.db.list_stashes():
+            raise ValueError("No stashes exist")
+        self.stash_apply(0)
+        self.db.delete_stash(0)
+
+    def stash_drop(self, index: int) -> None:
+        """Delete a stash at the given index."""
+        if self.db.get_stash(index) is None:
+            raise ValueError(f"Stash index {index} out of range")
+        self.db.delete_stash(index)
+
+    def get_stash_snapshot(self, index: int) -> list[dict[str, Any]]:
+        """Return staged file entries for a stash (for diff preview)."""
+        stash = self.db.get_stash(index)
+        if stash is None:
+            raise ValueError(f"Stash index {index} out of range")
+        return json.loads(stash["staged_snapshot_json"])
+
     def get_working_dir_files(self, subdir: str = "") -> list[dict[str, str]]:
         """List files and directories in the working directory for the UI explorer."""
         base = os.path.join(self.repo_path, subdir) if subdir else self.repo_path

@@ -372,5 +372,89 @@ def create_commit(repo_name: str) -> Any:
     return redirect(url_for("repo_detail", repo_name=repo_name))
 
 
+@app.route("/repo/<repo_name>/stash-save", methods=["POST"])
+def stash_save(repo_name: str) -> Any:
+    """Save staged changes to the stash stack."""
+    ops = get_ops(repo_name)
+    message = request.form.get("message", "").strip() or None
+    try:
+        index = ops.stash_save(message)
+        flash(f"Stashed changes at index {index}", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    return redirect(url_for("working_dir", repo_name=repo_name))
+
+
+@app.route("/repo/<repo_name>/stashes")
+def stash_list(repo_name: str) -> str:
+    """Render the stash list page."""
+    ops = get_ops(repo_name)
+    stashes = ops.stash_list()
+    return render_template(
+        "stashes.html",
+        repo_name=repo_name,
+        stashes=stashes,
+    )
+
+
+@app.route("/repo/<repo_name>/stashes/<int:index>")
+def stash_detail(repo_name: str, index: int) -> str | Any:
+    """Render stash detail with diff preview."""
+    ops = get_ops(repo_name)
+    try:
+        snapshot = ops.get_stash_snapshot(index)
+    except ValueError:
+        flash("Stash not found", "error")
+        return redirect(url_for("stash_list", repo_name=repo_name))
+
+    stashes = ops.stash_list()
+    stash_meta = next((s for s in stashes if s["index"] == index), None)
+    if stash_meta is None:
+        flash("Stash not found", "error")
+        return redirect(url_for("stash_list", repo_name=repo_name))
+
+    preview: list[dict[str, Any]] = []
+    for entry in snapshot:
+        content = ""
+        if entry["action"] == "add" and entry.get("blob_hash"):
+            content = ops.get_blob_content(entry["blob_hash"]) or ""
+        preview.append({
+            "path": entry["path"],
+            "action": entry["action"],
+            "content": content,
+        })
+
+    return render_template(
+        "stash_detail.html",
+        repo_name=repo_name,
+        stash=stash_meta,
+        preview=preview,
+    )
+
+
+@app.route("/repo/<repo_name>/stashes/<int:index>/apply", methods=["POST"])
+def stash_apply(repo_name: str, index: int) -> Any:
+    """Apply a stash to the staging area."""
+    ops = get_ops(repo_name)
+    try:
+        ops.stash_apply(index)
+        flash(f"Applied stash@{index}", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    return redirect(url_for("stash_list", repo_name=repo_name))
+
+
+@app.route("/repo/<repo_name>/stashes/<int:index>/drop", methods=["POST"])
+def stash_drop(repo_name: str, index: int) -> Any:
+    """Delete a stash without applying."""
+    ops = get_ops(repo_name)
+    try:
+        ops.stash_drop(index)
+        flash(f"Dropped stash@{index}", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    return redirect(url_for("stash_list", repo_name=repo_name))
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

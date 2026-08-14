@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Stashes - {{ repo_name }} - MiniGit{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Repositories</a> /
+    <a href="/repo/{{ repo_name }}">{{ repo_name }}</a> /
+    <a href="/repo/{{ repo_name }}/working-dir">Working Directory</a> /
+    <strong>Stashes</strong>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span>Stash Stack</span>
+        <span class="badge">{{ stashes|length }}</span>
+    </div>
+    <div class="card-body">
+        {% if stashes %}
+        {% for s in stashes %}
+        <div class="list-item" style="align-items: center;">
+            <span class="badge added" style="font-size: 11px;">#{{ s.index }}</span>
+            <div style="flex: 1;">
+                <div style="font-family: monospace; font-size: 13px;">
+                    {% if s.message %}{{ s.message }}{% else %}<span class="meta">(no message)</span>{% endif %}
+                </div>
+                <div class="meta">{{ s.timestamp }} &middot; {{ s.file_count }} file{{ 's' if s.file_count != 1 }}</div>
+            </div>
+            <a href="/repo/{{ repo_name }}/stashes/{{ s.index }}" class="btn" style="padding: 2px 8px; font-size: 12px;">View</a>
+            <form action="/repo/{{ repo_name }}/stashes/{{ s.index }}/apply" method="POST" style="margin: 0;">
+                <button type="submit" class="btn btn-primary" style="padding: 2px 8px; font-size: 12px;">Apply</button>
+            </form>
+            <form action="/repo/{{ repo_name }}/stashes/{{ s.index }}/drop" method="POST" style="margin: 0;">
+                <button type="submit" class="btn" style="padding: 2px 8px; font-size: 12px;">Drop</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="list-item meta">No stashes</div>
+        {% endif %}
+    </div>
+</div>
+
+<div style="margin-top: 16px;">
+    <a href="/repo/{{ repo_name }}/working-dir" class="btn">&larr; Back to working directory</a>
+</div>
+{% endblock %}
